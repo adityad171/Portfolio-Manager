@@ -177,42 +177,57 @@ def query1(user):
 
 
 def query3(user):
+    # Connect to the Market database
     connection, cursor = connect_to_database("Market")
     query = f"SELECT DISTINCT Name FROM Stocks"
-    # print(query)
     cursor.execute(query)
 
     result = cursor.fetchall()
-    company_list= []
-    for row in result:
-        company_list.append(row[0])
-    company= chooseCompany(company_list)
+    company_list = [row[0] for row in result]  # List comprehension for cleaner code
+    company = chooseCompany(company_list)
 
     print("Enter quantity:")
-    quantity= int(input())
+    quantity = int(input())
 
     current_date = datetime.now()
     date_formated = current_date.strftime("%Y-%m-%d")
 
-    query = f"SELECT * FROM Stocks where name='{company}' and date='{date_formated}'"
+    # Fetch stock details
+    query = f"SELECT * FROM Stocks WHERE name='{company}' AND date='{date_formated}'"
     print(query)
     cursor.execute(query)
     result = cursor.fetchone()
     print(result)
+
+    # Sleep to avoid overwhelming the database
     time.sleep(3)
 
+    # Connect to the PORTFOLIOS database
     connection2, cursor2 = connect_to_database("PORTFOLIOS")
-    user= int(user)
-    # print(result)
-    query = f"SELECT * FROM PORTFOLIO WHERE user_id = '{user}'"
-    # print(query)
-    cursor2.execute(query)
+    user = int(user)
 
+    # Fetch the user's portfolio
+    query = f"SELECT * FROM PORTFOLIO WHERE user_id = '{user}'"
+    cursor2.execute(query)
     result2 = cursor2.fetchone()[0]
 
-    query= f"insert into asset (asset_id, portfolio_id, asset_name, asset_type,quantity, purchase_price, current_price) values ('{result[0]}','{result2}', '{result[2]}', 'stock', '{quantity}', '{result[4]}', '{result[4]}');"
+    # Insert new asset into the 'asset' table
+    query = (f"INSERT INTO asset (asset_id, portfolio_id, asset_name, asset_type, quantity, purchase_price, current_price) "
+             f"VALUES ('{result[0]}', '{result2}', '{result[2]}', 'stock', '{quantity}', '{result[4]}', '{result[4]}');")
     print(query)
-    cursor2.execute(query)
+
+    try:
+        cursor2.execute(query)
+        connection2.commit()  # Commit the transaction to ensure the data is inserted
+        print("Data inserted successfully.")
+    except Exception as e:
+        print(f"Error inserting data: {e}")
+    finally:
+        # Close cursors and connections
+        cursor.close()
+        connection.close()
+        cursor2.close()
+        connection2.close()
     
 
 def query5():
