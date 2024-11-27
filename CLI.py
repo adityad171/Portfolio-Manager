@@ -1,3 +1,4 @@
+
 import subprocess
 from collections import Counter
 import re
@@ -8,14 +9,18 @@ import pandas as pd
 import time
 import numpy as np
 
+# Temporary portfolio
+temp_portfolio = []
+
 print("--------------------------------------------------Hello!! Welcome to Portfolio Manager-----------------------------------------------------")
+
 def menu():
     print("1. Get analysis of your portfolio")
-    # print("2. Sell assets")
+    print("2. Sell assets")
     print("3. Buy assets")
-    # print("4. Get analysis of similar assets")
+    print("4. Create portfolio")  # New menu option
     print("5. Get top 10 assets")
-    print("7. Risk Assesment of Portfolio")
+    print("7. Risk Assessment of Portfolio")
     print("8. Exit")
 
 def choose_duration():
@@ -23,36 +28,6 @@ def choose_duration():
     print("2. 1 month")
     print("3. 1 year")
 
-def login(username, password, type):
-
-    connection, cursor = connect_to_database("USERS")
-    if connection is None:
-        print("Could not connect to the database.")
-        return False
-    
-    # cursor = connection.cursor()
-
-    # SQL query to find the customer
-    query = f"SELECT * FROM {type}s WHERE {type}_username = %s AND {type}_password = %s"
-    # print(query)
-    cursor.execute(query, (username, password))
-    
-    # Fetch one result
-    result = cursor.fetchone()
-    # print(result)
-
-    # Close the connection
-    cursor.close()
-    connection.close()
-
-    if result:
-        print("Customer found.")
-        return True
-    else:
-        print("Customer not found.")
-        return False
-    
-    
 def connect_to_database(database_name):
     connection = mysql.connector.connect(
         host='localhost',  # Replace with your MySQL host
@@ -63,15 +38,130 @@ def connect_to_database(database_name):
     cursor = connection.cursor()
     return connection, cursor
 
+def login(username, password):
+    connection, cursor = connect_to_database("USERS")
+    if connection is None:
+        print("Could not connect to the database.")
+        return False
+    
+    query = f"SELECT * FROM customers WHERE customer_username = %s AND customer_password = %s"
+    cursor.execute(query, (username, password))
+    result = cursor.fetchone()
+
+    cursor.close()
+    connection.close()
+
+    if result:
+        print("Customer found.")
+        return True
+    else:
+        print("Invalid credentials.")
+        return False
+    
+
+
+def buy_asset():
+    global temp_portfolio
+
+    connection, cursor = connect_to_database("Market")
+    query = f"SELECT DISTINCT Name FROM Stocks"
+    cursor.execute(query)
+
+    result = cursor.fetchall()
+    company_list = [row[0] for row in result]  # List comprehension for cleaner code
+    company = chooseCompany(company_list)
+
+    query = f"SELECT * FROM Stocks where Name='{company}'"
+    cursor.execute(query)
+    id = cursor.fetchone()[0]
+
+    print("Enter quantity:")
+    quantity = int(input())
+
+
+    temp_portfolio.append({"asset_name": company, "asset_id": id, "quantity": quantity})
+    print(f"Added {quantity} units of {company} to the temporary portfolio.")
+
+def sell_asset(asset_name, quantity):
+    global temp_portfolio
+    for asset in temp_portfolio:
+        if asset["asset_name"] == asset_name:
+            if asset["quantity"] >= quantity:
+                asset["quantity"] -= quantity
+                print(f"Removed {quantity} units of {asset_name} from the temporary portfolio.")
+                if asset["quantity"] == 0:
+                    temp_portfolio.remove(asset)
+                return
+            else:
+                print("Not enough quantity to sell.")
+                return
+    print(f"{asset_name} not found in the temporary portfolio.")
+
+def create_portfolio(user_id):
+    global temp_portfolio
+    if not temp_portfolio:
+        print("Temporary portfolio is empty. Nothing to save.")
+        return
+
+    connection2, cursor2 = connect_to_database("PORTFOLIOS")
+    if cursor2 is None:
+        print("Failed to connect to the database. Please check your database settings.")
+        return
+
+    try:
+        # Fetch the user's portfolio
+        query = f"SELECT * FROM PORTFOLIO WHERE user_id = '{user_id}'"
+        cursor2.execute(query)
+        result2 = cursor2.fetchone()
+        if not result2:
+            print(f"No portfolio found for user ID: {user_id}")
+            return
+
+        portfolio_id = result2[0]
+
+        # Insert assets into the user's portfolio
+        for asset in temp_portfolio:
+            current_date = datetime.now().strftime("%Y-%m-%d")
+            current_date= '2023-05-26'
+            # Fetch current price from the Market database
+            connection_market, cursor_market = connect_to_database("Market")
+            query_market = f"SELECT * FROM Stocks WHERE name='{asset['asset_name']}' AND date='{current_date}'"
+            cursor_market.execute(query_market)
+            stock_data = cursor_market.fetchone()
+            
+            if not stock_data:
+                print(f"Stock data for {asset['asset_name']} not found for date {current_date}.")
+                continue
+            
+            purchase_price = stock_data[4]  # Assuming the 5th column is the price
+            
+            # Insert into the 'asset' table in the PORTFOLIOS database
+            query_insert = (
+                f"INSERT INTO asset (asset_id, portfolio_id, asset_name, asset_type, quantity, purchase_price, current_price) "
+                f"VALUES ('{asset['asset_id']}', '{portfolio_id}', '{asset['asset_name']}', 'stock', {asset['quantity']}, {purchase_price}, {purchase_price});"
+            )
+            cursor2.execute(query_insert)
+
+            # Close the Market database connection
+            cursor_market.close()
+            connection_market.close()
+
+        connection2.commit()
+        print("Portfolio saved successfully.")
+        temp_portfolio.clear()  # Clear temporary portfolio after saving
+    except mysql.connector.Error as err:
+        print(f"Error during portfolio creation: {err}")
+    finally:
+        cursor2.close()
+        connection2.close()
 
 
 
-connection = mysql.connector.connect(
-        host='localhost',  # Replace with your MySQL host
-        user='root',  # Replace with your MySQL username
-        password='@Aditya171',  # Replace with your MySQL password
-    )
-cursor = connection.cursor()
+
+
+
+
+
 
 
 def getCustomerID(username, type= "customer"):
@@ -131,99 +221,6 @@ def query1(user):
     print(f"number of assets: {assets}")
     print(f"Net Profit/loss: {net}")
 
-# def query2(user):
-#     # Connect to the PORTFOLIOS database
-#     connection2, cursor2 = connect_to_database("PORTFOLIOS")
-    
-#     user = int(user)
-
-#     # Fetch the user's portfolio
-#     query = f"SELECT * FROM PORTFOLIO WHERE user_id = '{user}'"
-#     cursor2.execute(query)
-#     result2 = cursor2.fetchone()[0]
-    
-#     # Get the list of stocks the user owns
-#     query = f"SELECT asset_name, quantity, current_price FROM asset WHERE portfolio_id = '{result2}'"
-#     cursor2.execute(query)
-#     owned= cursor2.fetchall()
-#     dict_owned={}
-#     list_owned=[]
-#     for row in owned:
-#         a=0
-#         if row[0] in dict_owned:
-#             a = dict_owned.get(row[0])
-#         dict_owned.update({row[0]: a+row[1]})
-
-#     if not owned:
-#         print("You do not own any stocks.")
-#         return
-
-#     print("Your stocks:")
-#     i=1
-#     for stock in dict_owned:
-#         list_owned.append(stock)
-#         print(f"{i}. Stock: {stock}, Quantity: {dict_owned.get(stock)}")
-#         i+=1
-    
-#     print("Enter the stock name you want to sell:")
-#     stock_to_sell = int(input())
-    
-#     print("Enter the quantity to sell:")
-#     quantity_to_sell = int(input())
-
-#     if quantity_to_sell > dict_owned.get(list_owned[stock_to_sell-1]):
-#         print(f"Insufficient quantity. You only own {dict_owned.get(list_owned[stock_to_sell-1])} shares.")
-#         return
-
-#     # Connect to the Market database to get the current stock price
-#     connection, cursor = connect_to_database("Market")
-#     current_date = datetime.now()
-#     date_formated = current_date.strftime("%Y-%m-%d")
-
-#     query = f"SELECT * FROM Stocks WHERE name='{list_owned[stock_to_sell-1]}'"
-#     cursor.execute(query)
-#     result = cursor.fetchone()
-
-#     if not result:
-#         print("Stock data not found for today.")
-#         return
-
-#     current_price = result[4]
-#     print(f"Selling price for {stock_to_sell}: {current_price}")
-
-    # Calculate remaining quantity after sale
-    # remaining_quantity = dict_owned.get(list_owned[stock_to_sell-1]) - quantity_to_sell
-
-    # query = f"SELECT * FROM Asset WHERE name='{list_owned[stock_to_sell-1]} AND portfolio_id = '{result2}'"
-    # cursor2.execute(query)
-    # result2 = cursor2.fetchall()
-
-    # for row in result2:
-    #     curr_quantity= row[4]
-    #     quantity_to_sell-=curr_quantity
-    #     if quantity_to_sell > 0:
-    #         query = f"UPDATE asset SET quantity = '{quantity_to_sell}', current_price = '{current_price}' WHERE asset_name = '{list_owned[stock_to_sell-1]}' AND portfolio_id = '{result2}'"
-    #     else:
-    #         query = f"DELETE FROM asset WHERE asset_name = '{list_owned[stock_to_sell-1]}' AND portfolio_id = '{result2}'"
-        
-    # try:
-    #     # If quantity remains, update the asset. If sold out, remove the asset from the portfolio.
-    #     while remaining_quantity > 0:
-    #         query = f"UPDATE asset SET quantity = '{remaining_quantity}', current_price = '{current_price}' WHERE asset_name = '{list_owned[stock_to_sell-1]}' AND portfolio_id = '{result2}'"
-    #         if remaining_quantity<=0:
-    #             query = f"DELETE FROM asset WHERE asset_name = '{list_owned[stock_to_sell-1]}' AND portfolio_id = '{result2}'"
-        
-    #     cursor2.execute(query)
-    #     connection2.commit()
-    #     print("Stock sold successfully.")
-    # except Exception as e:
-    #     print(f"Error selling stock: {e}")
-    # finally:
-    #     # Close connections and cursors
-    #     cursor.close()
-    #     connection.close()
-    #     cursor2.close()
-    #     connection2.close()
 
 
 def query3(user):
@@ -431,96 +428,6 @@ def query7(user):
 
     print(f'Portfolio Risk (Standard Deviation): {portfolio_risk:.4f}')
 
-
-
-# cont="y"
-# while(cont=="y"):
-#     type=0
-    # print("Please enter your username: ")
-    # user=input()
-
-    # print("Please enter your password: ")
-    # passw=input()
-#     logged_in=False
-    
-#     while(type!=1 or type!=2):
-#         print("Are you a:")
-#         print("1. Customer")
-#         print("2. Admin")
-#         # print("3. Exit")
-#         type= int(input())
-
-#         if(type==1):
-#             logged_in=login(user, passw ,"customer")
-#         elif(type==2):
-#             logged_in=login(user, passw ,"admin")
-#         if logged_in:
-#             break
-#         elif(type==3 or logged_in==False):
-#             "Exiting application"
-#             break
-#     if logged_in:
-#         getCustomerID(user, "customer")
-#         menu()
-#         print("Chosse any one query: ")
-#         ch=int(input())
-#         if(ch==1):
-#             query1()
-        # elif(ch==2):
-        #     query2()
-        # elif(ch==3):
-        #     query3()
-        # elif(ch==4):
-        #     query4()
-        # elif(ch==5):
-        #     # Fetch total duration for each platform
-        #     total_durations = fetch_total_duration()
-
-        #     # Convert duration to seconds
-        #     total_durations_seconds = [(platform[0], timedelta(hours=platform[1].seconds // 3600, minutes=(platform[1].seconds // 60) % 60, seconds=platform[1].seconds % 60)) for platform in total_durations]
-
-        #     # Plotting
-        #     labels = [platform[0] for platform in total_durations_seconds]
-        #     durations_seconds = [duration[1].total_seconds() for duration in total_durations_seconds]
-
-        #     plt.pie(durations_seconds, labels=labels, autopct='%1.1f%%', startangle=90)
-        #     plt.title('Total Duration Distribution by Platform')
-        #     plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-
-        #     plt.show()
-        # elif(ch==6):
-        #     print("Hang on while updating your data...")
-        #     subprocess.run(["/home/arbiter/Desktop/IIA/venv/bin/python", "/home/arbiter/Desktop/IIA/schedulerCode.py"])
-        # elif(ch==7):
-        #     query7()
-        # elif(ch==8):
-        #     query8()
-    #     elif(ch==9):
-    #         cont="n"
-    #     else:
-    #         print("Wrong choice!!!")
-
-    # else:
-    #     print("Try again")
-
-#     create_sql_view(cursor, "General_view", """SELECT 
-#     U.customer_id,
-#     U.customer_username,
-#     P.portfolio_id,
-#     P.user_id,
-#     R.report_id,
-#     R.portfolio_id
-# FROM 
-#     USERS.Customers U
-# JOIN 
-#     PORTFOLIOS.Asset P ON U.customer_id = P.user_id
-# JOIN 
-#     REPORTS.Performance R ON P.portfolio_id = R.portfolio_id;""")
-
-#     print(fetch_view_data(cursor, "General_view"))
-
-#     cursor.close()
-#     connection.close()
 import jellyfish
 
 # Function to calculate Jaro-Winkler similarity and return top 5 closest matches
@@ -541,23 +448,7 @@ def get_top_5_closest_matches(user_input, company_list):
     
     return top_5_matches
 
-# Example usage
-# List of company names in the database
-# company_list = [
-#     "Microsoft Corporation",
-#     "Apple Inc.",
-#     "Google LLC",
-#     "Amazon.com, Inc.",
-#     "Meta Platforms, Inc.",
-#     "Tesla, Inc.",
-#     "Alphabet Inc.",
-#     "Netflix, Inc.",
-#     "Uber Technologies, Inc.",
-#     "Zoom Video Communications, Inc."
-# ]
 
-# User input company name
-# user_input = "Apple"
 def chooseCompany(company_list):
     print("Enter company Name: ")
     company= input()
@@ -575,9 +466,162 @@ def chooseCompany(company_list):
     confirm= int(input())
     return top_matches[confirm-1][0]
 
-    
 
-# chooseCompany(company_list)
+
+
+
+
+
+def portfolio_analysis():
+    global temp_portfolio
+
+    if not temp_portfolio:
+        print("The temporary portfolio is empty. Please add assets to analyze.")
+        return
+
+    connection, cursor = connect_to_database("Market")
+    current_date = datetime.now().strftime("%Y-%m-%d")
+
+    total_assets = 0
+    net_profit_loss = 0
+
+    print("Analyzing your temporary portfolio...\n")
+    print(f"{'Asset Name':<15}{'Quantity':<10}{'Purchase Price':<15}{'Current Price':<15}{'Profit/Loss':<15}")
+    print("-" * 70)
+
+    for asset in temp_portfolio:
+        asset_name = asset['asset_name']
+        quantity = asset['quantity']
+        
+        # Fetch current price from the Market database
+        query = f"SELECT * FROM Stocks WHERE name='{asset_name}' AND date='{current_date}'"
+        cursor.execute(query)
+        stock_data = cursor.fetchone()
+
+        if not stock_data:
+            print(f"Current price for {asset_name} is unavailable. Skipping.")
+            continue
+
+        current_price = stock_data[4]  # Assuming the 5th column is the price
+        purchase_price = current_price  # For now, assume purchase price is the same as current price
+
+        # Calculate profit/loss
+        profit_loss = quantity * (current_price - purchase_price)
+        net_profit_loss += profit_loss
+        total_assets += 1
+
+        # Print the details for this asset
+        print(f"{asset_name:<15}{quantity:<10}{purchase_price:<15.2f}{current_price:<15.2f}{profit_loss:<15.2f}")
+
+    print("-" * 70)
+    print(f"Total number of assets: {total_assets}")
+    print(f"Net Profit/Loss: {net_profit_loss:.2f}\n")
+
+    cursor.close()
+    connection.close()
+
+def temporary_portfolio_risk():
+    global temp_portfolio
+
+    if not temp_portfolio:
+        print("The temporary portfolio is empty. Please add assets to analyze risk.")
+        return
+
+    connection, cursor = connect_to_database("Market")
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date= '2024-04-24'
+    init_date= None
+
+    val=0
+    wt=[]
+    returns = []
+
+    print("Calculating risk assessment for the temporary portfolio...\n")
+
+    for asset in temp_portfolio:
+        asset_name = asset['asset_name']
+        quantity = asset['quantity']
+
+        # Fetch historical prices from the Market database
+        query = f"SELECT date, price FROM Stocks WHERE name='{asset_name}' and date='{current_date}'"
+        cursor.execute(query)
+        curr_prices = cursor.fetchone()
+
+        print(curr_prices)
+
+        arr=[]
+        temp=(quantity*curr_prices)
+        val+=temp
+        wt.append(temp)        
+
+        one_year_ago = current_date - relativedelta(years=1)
+        init_date = one_year_ago.strftime("%Y-%m-%d")
+        # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
+        query2 = f"SELECT * FROM STOCKS WHERE Name='{asset}' and date = '{init_date}'"
+        print(query2)
+        cursor.execute(query2)
+        result2 = cursor.fetchone()
+        arr.append(result2[4])
+
+        time.sleep(2)
+
+        six_month_ago = current_date - relativedelta(months=6)
+        init_date = six_month_ago.strftime("%Y-%m-%d")
+        # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
+        query2 = f"SELECT * FROM STOCKS WHERE Name='{asset}' and date = '{init_date}'"
+
+        print(query2)
+        cursor.execute(query2)
+        result2 = cursor.fetchone()
+        arr.append(result2[4])
+
+        time.sleep(2)
+
+        one_month_ago = current_date - relativedelta(months=1)
+        init_date = one_month_ago.strftime("%Y-%m-%d")
+        # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
+        query2 = f"SELECT * FROM STOCKS WHERE Name='{asset}' and date = '{init_date}'"
+
+        print(query2)
+        cursor.execute(query2)
+        result2 = cursor.fetchone()
+        arr.append(result2[4])
+
+        time.sleep(2)
+
+        init_date = current_date.strftime("%Y-%m-%d")
+        # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
+        query2 = f"SELECT * FROM STOCKS WHERE Name='{asset}' and date = '{init_date}'"
+
+        print(query2)
+        cursor.execute(query2)
+        result2 = cursor.fetchone()
+        arr.append(result2[4])
+
+    for i in range(len(wt)):
+        wt[i]=wt[i]/val
+    # Example asset returns and weights
+    weights = np.array(wt)  # Portfolio weights of 3 assets
+    returns = np.array(arr)
+
+    print(weights)
+    print(returns)
+
+    # Calculate covariance matrix
+    cov_matrix = np.cov(returns)
+
+    # Portfolio variance
+    portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
+
+    # Portfolio standard deviation (risk)
+    portfolio_risk = np.sqrt(portfolio_variance)
+
+    print(f'Portfolio Risk (Standard Deviation): {portfolio_risk:.4f}')
+
+
+    cursor.close()
+    connection.close()
+
 
 print("Please enter your username: ")
 user=str(input())
@@ -599,3 +643,106 @@ user=str(input())
 
 # result = cursor.fetchall()
 # print(result)
+
+
+
+
+
+
+# Example usage of new features (can be connected to the menu logic)
+buy_asset()
+# portfolio_analysis()
+temporary_portfolio_risk()
+
+# print(temp_portfolio)
+# sell_asset("AAPL", 6)
+# print(temp_portfolio)
+# create_portfolio(getCustomerID(user))
+
+# connection, cursor = connect_to_database("Portfolios")
+# query = f"SELECT * FROM Asset"
+# # print(query)
+# cursor.execute(query)
+
+# result = cursor.fetchall()
+# print(result)
+
+cont="y"
+while(cont=="y"):
+    print("Please enter your username: ")
+    user=input()
+
+    print("Please enter your password: ")
+    passw=input()
+    logged_in=False
+    
+    while(True):
+
+        logged_in=login(user, passw)  
+        if logged_in:
+            break
+        else:
+            "Exiting application"
+            break
+    if logged_in:
+        getCustomerID(user)
+        menu()
+        print("Chosse any one query: ")
+        ch=int(input())
+        if(ch==1):
+            query1()
+        elif(ch==2):
+            buy_asset()
+        elif(ch==3):
+            query3()
+        elif(ch==4):
+            query4()
+        elif(ch==5):
+            # Fetch total duration for each platform
+            total_durations = fetch_total_duration()
+
+            # Convert duration to seconds
+            total_durations_seconds = [(platform[0], timedelta(hours=platform[1].seconds // 3600, minutes=(platform[1].seconds // 60) % 60, seconds=platform[1].seconds % 60)) for platform in total_durations]
+
+            # Plotting
+            labels = [platform[0] for platform in total_durations_seconds]
+            durations_seconds = [duration[1].total_seconds() for duration in total_durations_seconds]
+
+            plt.pie(durations_seconds, labels=labels, autopct='%1.1f%%', startangle=90)
+            plt.title('Total Duration Distribution by Platform')
+            plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+            plt.show()
+        elif(ch==6):
+            print("Hang on while updating your data...")
+            subprocess.run(["/home/arbiter/Desktop/IIA/venv/bin/python", "/home/arbiter/Desktop/IIA/schedulerCode.py"])
+        elif(ch==7):
+            query7()
+        elif(ch==8):
+            query8()
+        elif(ch==9):
+            cont="n"
+        else:
+            print("Wrong choice!!!")
+
+    else:
+        print("Try again")
+
+    create_sql_view(cursor, "General_view", """SELECT 
+    U.customer_id,
+    U.customer_username,
+    P.portfolio_id,
+    P.user_id,
+    R.report_id,
+    R.portfolio_id
+FROM 
+    USERS.Customers U
+JOIN 
+    PORTFOLIOS.Asset P ON U.customer_id = P.user_id
+JOIN 
+    REPORTS.Performance R ON P.portfolio_id = R.portfolio_id;""")
+
+    print(fetch_view_data(cursor, "General_view"))
+
+    cursor.close()
+    connection.close()
