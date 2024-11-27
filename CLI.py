@@ -1,4 +1,4 @@
-
+import jellyfish
 import subprocess
 from collections import Counter
 import re
@@ -11,8 +11,6 @@ import numpy as np
 
 # Temporary portfolio
 temp_portfolio = []
-
-print("--------------------------------------------------Hello!! Welcome to Portfolio Manager-----------------------------------------------------")
 
 def menu():
     print("1. Get analysis of your portfolio")
@@ -60,7 +58,7 @@ def login(username, password):
     
 
 
-def buy_asset():
+def buy_asset(user_id):
     global temp_portfolio
 
     connection, cursor = connect_to_database("Market")
@@ -69,7 +67,7 @@ def buy_asset():
 
     result = cursor.fetchall()
     company_list = [row[0] for row in result]  # List comprehension for cleaner code
-    company = chooseCompany(company_list)
+    company = chooseCompany(company_list, user_id)
 
     query = f"SELECT * FROM Stocks where Name='{company}'"
     cursor.execute(query)
@@ -82,8 +80,18 @@ def buy_asset():
     temp_portfolio.append({"asset_name": company, "asset_id": id, "quantity": quantity})
     print(f"Added {quantity} units of {company} to the temporary portfolio.")
 
-def sell_asset(asset_name, quantity):
+def sell_asset():
     global temp_portfolio
+    i = 1
+    print("What do you want to sell?")
+    for asset in temp_portfolio:
+        print(f"{i}. {asset['asset_name']} : Quantity= {asset['quantity']}")
+        i += 1
+
+    ind = int(input("Enter index (integer only): "))
+    quantity = int(input("Quantity to sell (integer only): "))
+    asset_name = temp_portfolio[ind - 1]["asset_name"]
+
     for asset in temp_portfolio:
         if asset["asset_name"] == asset_name:
             if asset["quantity"] >= quantity:
@@ -154,15 +162,6 @@ def create_portfolio(user_id):
     finally:
         cursor2.close()
         connection2.close()
-
-
-
-
-
-
-
-
-
 
 def getCustomerID(username, type= "customer"):
     connection, cursor = connect_to_database("USERS")
@@ -428,17 +427,15 @@ def query7(user):
 
     print(f'Portfolio Risk (Standard Deviation): {portfolio_risk:.4f}')
 
-import jellyfish
-
 # Function to calculate Jaro-Winkler similarity and return top 5 closest matches
 def get_top_5_closest_matches(user_input, company_list):
     # List to store company names and their similarity scores
     similarity_scores = []
     
     # Calculate Jaro-Winkler similarity between the input and each company name in the list
-    for company in company_list:
-        score = jellyfish.jaro_winkler_similarity(user_input, company)
-        similarity_scores.append((company, score))
+    for c in company_list:
+        score = jellyfish.jaro_winkler_similarity(user_input, c)
+        similarity_scores.append((c, score))
     
     # Sort the companies based on similarity score in descending order
     similarity_scores.sort(key=lambda x: x[1], reverse=True)
@@ -449,7 +446,7 @@ def get_top_5_closest_matches(user_input, company_list):
     return top_5_matches
 
 
-def chooseCompany(company_list):
+def chooseCompany(company_list, user_id):
     print("Enter company Name: ")
     company= input()
     # Get top 5 closest matches
@@ -458,18 +455,27 @@ def chooseCompany(company_list):
     # Print the top 5 matches with their similarity scores
     print("Top 5 closest matches:")
     i=1
-    for company, score in top_matches:
+    for c, score in top_matches:
         if(score>0.5):
-            print(f"{i}. {company}")
-        i+=1
+            print(f"{i}. {c}")
+            i+=1
+    print(f"{i}. None")
     print("Confirm the company (by entering the number):")
+
+    connection, cursor = connect_to_database("USERS")
+
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date= '2024-04-24'
+
     confirm= int(input())
+    if confirm < i and confirm>0:
+        query = (f"INSERT INTO SEARCH (user_id, query, company, date) "
+             f"VALUES ('{user_id}', '{company}', '{top_matches[confirm-1][0]}', '{current_date}');")
+        cursor.execute(query)
+
+    connection.commit()
+
     return top_matches[confirm-1][0]
-
-
-
-
-
 
 
 def portfolio_analysis():
@@ -623,8 +629,8 @@ def temporary_portfolio_risk():
     connection.close()
 
 
-print("Please enter your username: ")
-user=str(input())
+# print("Please enter your username: ")
+# user=str(input())
 # Tedra
 # print(getCustomerID(user))
 # query1(int(getCustomerID(user)))
@@ -645,34 +651,34 @@ user=str(input())
 # print(result)
 
 
-
-
-
-
 # Example usage of new features (can be connected to the menu logic)
-buy_asset()
+# buy_asset()
 # portfolio_analysis()
-temporary_portfolio_risk()
+# temporary_portfolio_risk()
 
 # print(temp_portfolio)
 # sell_asset("AAPL", 6)
 # print(temp_portfolio)
 # create_portfolio(getCustomerID(user))
 
-# connection, cursor = connect_to_database("Portfolios")
-# query = f"SELECT * FROM Asset"
-# # print(query)
-# cursor.execute(query)
+connection, cursor = connect_to_database("Users")
+query = f"SELECT * FROM Search"
+# print(query)
+cursor.execute(query)
 
-# result = cursor.fetchall()
-# print(result)
+result = cursor.fetchall()
+print(result)
+
+print("--------------------------------------------------Hello!! Welcome to Portfolio Manager-----------------------------------------------------")
 
 cont="y"
 while(cont=="y"):
     print("Please enter your username: ")
     user=input()
+    # Tedra
 
     print("Please enter your password: ")
+    # aA4(_Lf>c8@JS4K
     passw=input()
     logged_in=False
     
@@ -684,65 +690,31 @@ while(cont=="y"):
         else:
             "Exiting application"
             break
-    if logged_in:
-        getCustomerID(user)
+    while logged_in:
+        user_id= getCustomerID(user)
         menu()
         print("Chosse any one query: ")
         ch=int(input())
         if(ch==1):
-            query1()
+            query1(user_id)
         elif(ch==2):
-            buy_asset()
+            sell_asset()
         elif(ch==3):
-            query3()
+            buy_asset(user_id)
         elif(ch==4):
-            query4()
+            create_portfolio(user_id)
         elif(ch==5):
-            # Fetch total duration for each platform
-            total_durations = fetch_total_duration()
-
-            # Convert duration to seconds
-            total_durations_seconds = [(platform[0], timedelta(hours=platform[1].seconds // 3600, minutes=(platform[1].seconds // 60) % 60, seconds=platform[1].seconds % 60)) for platform in total_durations]
-
-            # Plotting
-            labels = [platform[0] for platform in total_durations_seconds]
-            durations_seconds = [duration[1].total_seconds() for duration in total_durations_seconds]
-
-            plt.pie(durations_seconds, labels=labels, autopct='%1.1f%%', startangle=90)
-            plt.title('Total Duration Distribution by Platform')
-            plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
-
-            plt.show()
-        elif(ch==6):
-            print("Hang on while updating your data...")
-            subprocess.run(["/home/arbiter/Desktop/IIA/venv/bin/python", "/home/arbiter/Desktop/IIA/schedulerCode.py"])
+            query5()
+        # elif(ch==6):
         elif(ch==7):
-            query7()
+            query7(user_id)
+        # elif(ch==8):
+        #     query8()
         elif(ch==8):
-            query8()
-        elif(ch==9):
             cont="n"
+            logged_in= False
         else:
             print("Wrong choice!!!")
 
     else:
         print("Try again")
-
-    create_sql_view(cursor, "General_view", """SELECT 
-    U.customer_id,
-    U.customer_username,
-    P.portfolio_id,
-    P.user_id,
-    R.report_id,
-    R.portfolio_id
-FROM 
-    USERS.Customers U
-JOIN 
-    PORTFOLIOS.Asset P ON U.customer_id = P.user_id
-JOIN 
-    REPORTS.Performance R ON P.portfolio_id = R.portfolio_id;""")
-
-    print(fetch_view_data(cursor, "General_view"))
-
-    cursor.close()
-    connection.close()
