@@ -14,12 +14,14 @@ temp_portfolio = []
 
 def menu():
     print("1. Get analysis of your portfolio")
-    print("2. Sell assets")
-    print("3. Buy assets")
+    print("2. Add assets")
+    print("3. Remove assets")
     print("4. Create portfolio")  # New menu option
     print("5. Get top 10 assets")
+    print("6. Search Asset")
     print("7. Risk Assessment of Portfolio")
-    print("8. Exit")
+    print("8. Popular Assets")
+    print("9. Exit")
 
 def choose_duration():
     print("1. 1 day")
@@ -628,6 +630,128 @@ def temporary_portfolio_risk():
     cursor.close()
     connection.close()
 
+import plotly.graph_objects as go
+
+def search_asset():
+    connection, cursor = connect_to_database("Market")
+
+    # Fetch all asset names from the database
+    query = f"SELECT DISTINCT Name FROM Stocks"
+    cursor.execute(query)
+    result = cursor.fetchall()
+    company_list = [row[0] for row in result]
+
+    # Prompt user to enter the asset name
+    print("Enter asset name to search:")
+    user_input = input()
+
+    # Get top 5 closest matches
+    top_matches = get_top_5_closest_matches(user_input, company_list)
+
+    connection, cursor = connect_to_database("USERS")
+
+    # Display top matches
+    print("Top 5 closest matches:")
+    for i, (company, score) in enumerate(top_matches, 1):
+        print(f"{i}. {company}")
+
+    print(f"{len(top_matches) + 1}. None")
+    print("Confirm the company (by entering the number):")
+    choice = int(input())
+
+    if choice < 1 or choice > len(top_matches) + 1:
+        print("Invalid choice.")
+        return
+
+    # If user selects "None", exit
+    if choice == len(top_matches) + 1:
+        print("No asset selected.")
+        return
+
+    confirmed_asset = top_matches[choice - 1][0]
+
+    query = (f"INSERT INTO SEARCH (user_id, query, company, date) "
+            f"VALUES ('{user_id}', '{company}', '{top_matches[choice-1][0]}', '{current_date}');")
+    
+    cursor.execute(query)
+
+    connection.commit()
+    print(f"Asset '{confirmed_asset}' selected.")
+
+    # Fetch price data for the last year
+    # current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date= '2024-04-24'
+    # one_year_ago = current_date - relativedelta(years=1)
+    one_year_ago= '2023-04-24'
+
+    query_prices = (f"SELECT date, price FROM Stocks "
+                    f"WHERE name='{confirmed_asset}' AND date BETWEEN '{one_year_ago}' AND '{current_date}' "
+                    f"ORDER BY date")
+    cursor.execute(query_prices)
+    price_data = cursor.fetchall()
+
+
+
+    if not price_data:
+        print(f"No price data available for the past year for {confirmed_asset}.")
+        return
+
+    # Extract dates and prices for plotting
+    dates = [row[0] for row in price_data]
+    prices = [row[1] for row in price_data]
+
+    # Plot line chart using Plotly
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=dates, y=prices, mode='lines', name=confirmed_asset))
+    fig.update_layout(title=f"Price Trend for {confirmed_asset} (Last 1 Year)",
+                      xaxis_title="Date",
+                      yaxis_title="Price",
+                      template="plotly_dark")
+    fig.show()
+
+    cursor.close()
+    connection.close()
+
+
+
+def get_popular_stocks():
+    try:
+        # Connect to the database
+        connection, cursor = connect_to_database("Users")  # Assuming "Users" contains the "Search" table
+
+        # Get the current date and calculate the date 15 days ago
+        # current_date = datetime.now().strftime('%Y-%m-%d')
+        current_date= '2024-04-24'
+        # fifteen_days_ago = (datetime.now() - relativedelta(days=15)).strftime('%Y-%m-%d')
+        fifteen_days_ago= '2024-04-05'
+        # Query to get popular stocks of the last 15 days
+        query = ("""
+            SELECT company, COUNT(*) AS search_count
+            FROM Search
+            WHERE date BETWEEN %s AND %s
+            GROUP BY company
+            ORDER BY search_count DESC
+            LIMIT 10
+        """)
+        cursor.execute(query, (fifteen_days_ago, current_date))
+
+        # Fetch results
+        popular_stocks = cursor.fetchall()
+
+        # Display popular stocks
+        print(f"{'Rank':<5}{'Asset Name':<20}")
+        print("-" * 20)
+        for rank, (stock, count) in enumerate(popular_stocks, start=1):
+            print(f"{rank:<5}{stock:<20}{count:<15}")
+
+        # Close connection
+        cursor.close()
+        connection.close()
+
+        return popular_stocks
+    except mysql.connector.Error as err:
+        print(f"Error fetching popular stocks: {err}")
+        return None
 
 # print("Please enter your username: ")
 # user=str(input())
@@ -705,12 +829,13 @@ while(cont=="y"):
             create_portfolio(user_id)
         elif(ch==5):
             query5()
-        # elif(ch==6):
+        elif(ch==6):
+            search_asset()
         elif(ch==7):
             query7(user_id)
-        # elif(ch==8):
-        #     query8()
         elif(ch==8):
+            get_popular_stocks()
+        elif(ch==9):
             cont="n"
             logged_in= False
         else:
