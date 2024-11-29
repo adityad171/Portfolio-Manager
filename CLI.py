@@ -82,6 +82,8 @@ def buy_asset(user_id):
     temp_portfolio.append({"asset_name": company, "asset_id": id, "quantity": quantity})
     print(f"Added {quantity} units of {company} to the temporary portfolio.")
 
+    print(temp_portfolio)
+
 def sell_asset():
     global temp_portfolio
     i = 1
@@ -106,6 +108,8 @@ def sell_asset():
                 print("Not enough quantity to sell.")
                 return
     print(f"{asset_name} not found in the temporary portfolio.")
+
+    print(temp_portfolio)
 
 def create_portfolio(user_id):
     global temp_portfolio
@@ -132,7 +136,7 @@ def create_portfolio(user_id):
         # Insert assets into the user's portfolio
         for asset in temp_portfolio:
             current_date = datetime.now().strftime("%Y-%m-%d")
-            current_date= '2023-05-26'
+            current_date= '2024-10-28'
             # Fetch current price from the Market database
             connection_market, cursor_market = connect_to_database("Market")
             query_market = f"SELECT * FROM Stocks WHERE name='{asset['asset_name']}' AND date='{current_date}'"
@@ -196,16 +200,13 @@ def query1(user):
     cursor.execute(query)
 
     result = cursor.fetchone()[0]
-    # print(result)
 
-    # print(result)
     query = f"SELECT * FROM Asset WHERE portfolio_id = '{result}'"
     
     print(query)
     cursor.execute(query)
 
     result = cursor.fetchall()
-    # print(result)
 
     assets=0
     net=0
@@ -216,67 +217,9 @@ def query1(user):
         print(row)
         assets+=1
         net+=(row[4]*(row[6]-row[5]))
-    # Close the connection
-    # cursor.close()
-    # connection.close()
+
     print(f"number of assets: {assets}")
     print(f"Net Profit/loss: {net}")
-
-
-
-# def query3(user):
-#     # Connect to the Market database
-#     connection, cursor = connect_to_database("Market")
-#     query = f"SELECT DISTINCT Name FROM Stocks"
-#     cursor.execute(query)
-
-#     result = cursor.fetchall()
-#     company_list = [row[0] for row in result]  # List comprehension for cleaner code
-#     company = chooseCompany(company_list)
-
-#     print("Enter quantity:")
-#     quantity = int(input())
-
-#     current_date = datetime.now()
-#     date_formated = current_date.strftime("%Y-%m-%d")
-
-#     # Fetch stock details
-#     query = f"SELECT * FROM Stocks WHERE name='{company}' AND date='{date_formated}'"
-#     print(query)
-#     cursor.execute(query)
-#     result = cursor.fetchone()
-#     print(result)
-
-#     # Sleep to avoid overwhelming the database
-#     time.sleep(3)
-
-#     # Connect to the PORTFOLIOS database
-#     connection2, cursor2 = connect_to_database("PORTFOLIOS")
-#     user = int(user)
-
-#     # Fetch the user's portfolio
-#     query = f"SELECT * FROM PORTFOLIO WHERE user_id = '{user}'"
-#     cursor2.execute(query)
-#     result2 = cursor2.fetchone()[0]
-
-#     # Insert new asset into the 'asset' table
-#     query = (f"INSERT INTO asset (asset_id, portfolio_id, asset_name, asset_type, quantity, purchase_price, current_price) "
-#              f"VALUES ('{result[0]}', '{result2}', '{result[2]}', 'stock', '{quantity}', '{result[4]}', '{result[4]}');")
-#     print(query)
-
-#     try:
-#         cursor2.execute(query)
-#         connection2.commit()  # Commit the transaction to ensure the data is inserted
-#         print("Data inserted successfully.")
-#     except Exception as e:
-#         print(f"Error inserting data: {e}")
-#     finally:
-#         # Close cursors and connections
-#         cursor.close()
-#         connection.close()
-#         cursor2.close()
-#         connection2.close()
-    
 
 def query5():
     choose_duration()
@@ -287,17 +230,23 @@ def query5():
     init_date= None
 
     current_date = datetime.now()
-    date_formated = current_date.strftime("%Y-%m-%d")
+    current_date= "2024-10-28"
+    date_formated= "2024-10-28"
+    # date_formated = current_date.strftime("%Y-%m-%d")
 
     if dur==1:
-        one_day_ago = current_date - relativedelta(days=1)
-        init_date = one_day_ago.strftime("%Y-%m-%d")
+        # one_day_ago = current_date - relativedelta(days=1)
+        # init_date = one_day_ago.strftime("%Y-%m-%d")
+        init_date= "2024-10-27"
     elif dur==2:
-        one_month_ago = current_date - relativedelta(months=1)
-        init_date = one_month_ago.strftime("%Y-%m-%d")
+        # one_month_ago = current_date - relativedelta(months=1)
+        # init_date = one_month_ago.strftime("%Y-%m-%d")
+        init_date= "2024-09-28"
+
     elif dur==3:
-        one_year_ago = current_date - relativedelta(years=1)
-        init_date = one_year_ago.strftime("%Y-%m-%d")
+        # one_year_ago = current_date - relativedelta(years=1)
+        # init_date = one_year_ago.strftime("%Y-%m-%d")
+        init_date= "2023-10-28"
 
 
     query = f"SELECT * FROM STOCKS WHERE date = '{date_formated}' ORDER BY name"
@@ -355,6 +304,7 @@ def query7(user):
     init_date= None
 
     current_date = datetime.now()
+    current_date= "2024-10-28"
     connection2, cursor2 = connect_to_database("MARKET")
 
     for row in result:
@@ -365,8 +315,9 @@ def query7(user):
         val+=temp
         wt.append(temp)
 
-        one_year_ago = current_date - relativedelta(years=1)
-        init_date = one_year_ago.strftime("%Y-%m-%d")
+        # one_year_ago = current_date - relativedelta(years=1)
+        # init_date = one_year_ago.strftime("%Y-%m-%d")
+        init_date= "2023-10-28"
         # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
         query2 = f"SELECT * FROM STOCKS WHERE Name='{row[2]}' and date = '{init_date}'"
         print(query2)
@@ -376,20 +327,9 @@ def query7(user):
 
         time.sleep(2)
 
-        six_month_ago = current_date - relativedelta(months=6)
-        init_date = six_month_ago.strftime("%Y-%m-%d")
-        # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
-        query2 = f"SELECT * FROM STOCKS WHERE Name='{row[2]}' and date = '{init_date}'"
-
-        print(query2)
-        cursor2.execute(query2)
-        result2 = cursor2.fetchone()
-        arr.append(result2[4])
-
-        time.sleep(2)
-
-        one_month_ago = current_date - relativedelta(months=1)
-        init_date = one_month_ago.strftime("%Y-%m-%d")
+        # six_month_ago = current_date - relativedelta(months=6)
+        # init_date = six_month_ago.strftime("%Y-%m-%d")
+        init_date= "2024-04-28"
         # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
         query2 = f"SELECT * FROM STOCKS WHERE Name='{row[2]}' and date = '{init_date}'"
 
@@ -400,7 +340,21 @@ def query7(user):
 
         time.sleep(2)
 
-        init_date = current_date.strftime("%Y-%m-%d")
+        # one_month_ago = current_date - relativedelta(months=1)
+        # init_date = one_month_ago.strftime("%Y-%m-%d")
+        init_date= "2024-09-28"
+        # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
+        query2 = f"SELECT * FROM STOCKS WHERE Name='{row[2]}' and date = '{init_date}'"
+
+        print(query2)
+        cursor2.execute(query2)
+        result2 = cursor2.fetchone()
+        arr.append(result2[4])
+
+        time.sleep(2)
+
+        # init_date = current_date.strftime("%Y-%m-%d")
+        init_date= "2024-10-28"
         # query2 = f"SELECT * FROM STOCKS WHERE date = '{init_date}' and Name={row[2]}"
         query2 = f"SELECT * FROM STOCKS WHERE Name='{row[2]}' and date = '{init_date}'"
 
@@ -446,7 +400,6 @@ def get_top_5_closest_matches(user_input, company_list):
     top_5_matches = similarity_scores[:5]
     
     return top_5_matches
-
 
 def chooseCompany(company_list, user_id):
     print("Enter company Name: ")
@@ -753,6 +706,143 @@ def get_popular_stocks():
         print(f"Error fetching popular stocks: {err}")
         return None
 
+import random
+def register_User():
+    try:
+        # Connect to the USERS database
+        connection, cursor = connect_to_database("USERS")
+
+        print("Enter your username: ")
+        user=input()
+        # Tedra
+
+        print("Enter your password: ")
+        # aA4(_Lf>c8@JS4K
+        passw=input()
+
+        print("Enter your Mobile Number: ")
+        num=int(input())
+
+        print("Enter your Email_id: ")
+        email=input()
+
+        print("Please enter your address information")
+
+        print("Enter country: ")
+        country=input()
+
+        print("Enter city: ")
+        city=input()
+
+        # Generate a unique customer_id
+        while True:
+            customer_id = random.randint(100000, 999999)  # Generate a 6-digit random ID
+            query_check_id = "SELECT * FROM customers WHERE customer_id = %s"
+            cursor.execute(query_check_id, (customer_id,))
+            if not cursor.fetchone():
+                break  # Exit loop if the ID is unique
+
+        # Insert new user into the database
+        query_insert = """
+            INSERT INTO customers (customer_id, customer_username, customer_password, customer_number, customer_email_ID, customer_city, customer_country)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.execute(query_insert, (customer_id, user, passw,num, email, city, country))
+        connection.commit()
+
+        print(f"Registration successful! Your Customer ID is: {customer_id}")
+
+        # Close the connection
+        cursor.close()
+        connection.close()
+    except mysql.connector.Error as err:
+        print(f"Error during user registration: {err}")
+
+def sell_asset_from_portfolio(user_id):
+    connection, cursor = connect_to_database("PORTFOLIOS")
+    if cursor is None:
+        print("Failed to connect to the database. Please check your database settings.")
+        return
+
+    try:
+        # Fetch the user's portfolio ID
+        query_portfolio = f"SELECT portfolio_id FROM PORTFOLIO WHERE user_id = '{user_id}'"
+        cursor.execute(query_portfolio)
+        portfolio_data = cursor.fetchone()
+        if not portfolio_data:
+            print(f"No portfolio found for user ID: {user_id}")
+            return
+
+        portfolio_id = portfolio_data[0]
+
+        # Fetch distinct assets for the user
+        query_assets = f"SELECT DISTINCT asset_name, asset_type FROM asset WHERE portfolio_id = '{portfolio_id}'"
+        cursor.execute(query_assets)
+        assets = cursor.fetchall()
+
+        if not assets:
+            print("No assets found in your portfolio.")
+            return
+
+        # Display assets with indexing
+        print("Your assets:")
+        for i, (asset_name, asset_type) in enumerate(assets, start=1):
+            print(f"{i}. {asset_name} ({asset_type})")
+
+        # User selects the asset to sell
+        choice = int(input("Enter the number corresponding to the asset you want to sell: "))
+        if choice < 1 or choice > len(assets):
+            print("Invalid choice.")
+            return
+
+        selected_asset_name, selected_asset_type = assets[choice - 1]
+
+        # Ask for the quantity to sell
+        quantity_to_sell = int(input(f"Enter the quantity of {selected_asset_name} to sell: "))
+
+        # Check total available quantity
+        query_quantity = f"SELECT SUM(quantity) FROM asset WHERE portfolio_id = '{portfolio_id}' AND asset_name = '{selected_asset_name}'"
+        cursor.execute(query_quantity)
+        total_quantity = cursor.fetchone()[0]
+
+        if total_quantity < quantity_to_sell:
+            print(f"Insufficient quantity. Available quantity: {total_quantity}")
+            return
+
+        # Sell the assets
+        remaining_quantity = quantity_to_sell
+
+        while remaining_quantity>0:
+            query= f"SELECT asset_id, quantity FROM asset WHERE portfolio_id = '{portfolio_id}' AND asset_name = '{selected_asset_name}' ORDER BY purchase_price ASC LIMIT 1;"
+            cursor.execute(query)
+            print(query)
+            row_quantity = cursor.fetchone()[1]
+
+
+            if row_quantity <= remaining_quantity:
+                # Delete the row if the quantity is less than or equal to the quantity to sell
+                query_delete = f"DELETE a FROM asset a JOIN ( SELECT asset_id FROM asset WHERE portfolio_id = '{portfolio_id}' AND asset_name = '{selected_asset_name}' ORDER BY purchase_price ASC LIMIT 1 ) subquery ON a.asset_id = subquery.asset_id;"
+                cursor.execute(query_delete)
+                remaining_quantity -= row_quantity
+            else:
+                # Update the row with the reduced quantity
+                new_quantity = row_quantity - remaining_quantity
+                query_update = f"UPDATE asset a JOIN ( SELECT asset_id FROM asset WHERE portfolio_id = '{portfolio_id}' AND asset_name = '{selected_asset_name}' ORDER BY purchase_price ASC LIMIT 1) subquery ON a.asset_id = subquery.asset_id SET a.quantity = {new_quantity};"
+                cursor.execute(query_update)
+                remaining_quantity = 0
+
+        connection.commit()
+        print(f"Successfully sold {quantity_to_sell} units of {selected_asset_name}.")
+    except mysql.connector.Error as err:
+        print(f"Error during asset selling: {err}")
+    except ValueError:
+        print("Invalid input. Please enter numeric values.")
+    finally:
+        cursor.close()
+        connection.close()
+
+
+
 # print("Please enter your username: ")
 # user=str(input())
 # Tedra
@@ -785,18 +875,33 @@ def get_popular_stocks():
 # print(temp_portfolio)
 # create_portfolio(getCustomerID(user))
 
-connection, cursor = connect_to_database("Users")
-query = f"SELECT * FROM Search"
+# connection, cursor = connect_to_database("Market")
+# query = f"SELECT * FROM Stocks"
+# # print(query)
+# cursor.execute(query)
+
+# result = cursor.fetchall()
+# print(result)
+
+connection, cursor = connect_to_database("Portfolios")
+query = f"Delete FROM Asset where asset_name='AAPL'"
 # print(query)
 cursor.execute(query)
-
-result = cursor.fetchall()
-print(result)
+query = f"Delete FROM Asset where asset_name='example_asset_2'"
+# print(query)
+cursor.execute(query)
+connection.commit()
 
 print("--------------------------------------------------Hello!! Welcome to Portfolio Manager-----------------------------------------------------")
 
 cont="y"
 while(cont=="y"):
+    print("Are you a new User?(y/n)")
+    new = input()
+    if new == ("y" or "Y"):
+        register_User()
+
+    print("Login")
     print("Please enter your username: ")
     user=input()
     # Tedra
@@ -843,3 +948,5 @@ while(cont=="y"):
 
     else:
         print("Try again")
+
+# sell_asset_from_portfolio(getCustomerID("Tedra"))

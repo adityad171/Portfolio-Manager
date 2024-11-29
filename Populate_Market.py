@@ -95,7 +95,7 @@ dow_jones_companies = {
 }
 
 start_date = '2023-04-23'
-end_date = '2023-05-28'
+end_date = '2024-10-28'
 api_key = "oCy2CTEcIxntCZD6oJUT0lGqWN79arQZ"
 
 # df_dict = {}
@@ -114,8 +114,8 @@ for tag, company in dow_jones_companies.items():
         query = "SELECT MAX(Date) FROM Stocks WHERE Symbol = %s GROUP BY Symbol;"
         cursor.execute(query, (tag,))
         res = cursor.fetchone()
-        if res is not None:
-            date = res[0].strftime("%Y-%m-%d")
+        # if res is not None:
+            # date = res[0].strftime("%Y-%m-%d")
 
 
     # Call the Polygon API to fetch stock data
